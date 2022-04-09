@@ -1,0 +1,44 @@
+{
+	"root": "/app/demo-config/certs/root_ca.crt",
+	"federatedRoots": null,
+	"crt": "/app/demo-config/certs/intermediate_ca.crt",
+	"key": "/app/demo-config/secrets/intermediate_ca_key",
+	"address": "",
+	"insecureAddress": ":8080",
+	"dnsNames": [
+		"localhost"
+	],
+	"logger": {
+		"format": "text"
+	},
+	"db": {
+		"type": "badgerv2",
+		"dataSource": "/app/demo-config/db",
+		"badgerFileLoadingMode": ""
+	},
+	"authority": {
+		"provisioners": [
+			{
+				"type": "ACME",
+				"name": "acme",
+				"options": {
+					"x509": {
+						"templateFile": "/app/demo-config/templates/certs/x509/client.tpl"
+					}
+				}
+			}
+		],
+		"template": {},
+		"backdate": "1m0s"
+	},
+	"tls": {
+		"cipherSuites": [
+			"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+		],
+		"minVersion": 1.2,
+		"maxVersion": 1.3,
+		"renegotiation": false
+	},
+	"password": "password"
+}

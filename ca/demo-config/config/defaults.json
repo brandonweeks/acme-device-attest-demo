@@ -1,0 +1,6 @@
+{
+	"ca-url": "https://localhost",
+	"ca-config": "/Users/bweeks/.step/config/ca.json",
+	"fingerprint": "5a1e96313b6f5c86afb0ea661ba7e9002d478e5b6a6672669b1d113f74c638d8",
+	"root": "/Users/bweeks/.step/certs/root_ca.crt"
+}

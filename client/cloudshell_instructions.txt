@@ -1,0 +1,3 @@
+Run `go run client.go` to request a certificate. 
+Run `go run client.go | openssl x509 -in - -text -noout` to view the contents of 
+the certificate.
