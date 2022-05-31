@@ -14,6 +14,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/google/go-attestation/attest"
 	x509ext "github.com/google/go-attestation/x509"
+	"github.com/google/go-tpm-tools/simulator"
 	"golang.org/x/crypto/acme"
 )
 
@@ -32,6 +34,7 @@ const (
 var (
 	caAddress    = flag.String("ca_address", "https://ca.attestation.dev/acme/acme/directory", "URL of ACME directory endpoint")
 	serialNumber = flag.String("serial", "12345", "Device serial number")
+	useSimulator = flag.Bool("sim", false, "Use a simulated TPM")
 )
 
 func accountKey() (crypto.Signer, error) {
@@ -160,8 +163,25 @@ func csr(key *attest.Key) ([]byte, error) {
 	return der, nil
 }
 
+type simulatorChannel struct {
+	io.ReadWriteCloser
+}
+
+func (simulatorChannel) MeasurementLog() ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
 func tpmInit() (*attest.Key, []byte, error) {
-	tpm, err := attest.OpenTPM(nil)
+	config := &attest.OpenConfig{}
+	if *useSimulator {
+		sim, err := simulator.Get()
+
+		if err != nil {
+			return nil, nil, err
+		}
+		config.CommandChannel = simulatorChannel{sim}
+	}
+	tpm, err := attest.OpenTPM(config)
 	if err != nil {
 		return nil, nil, err
 	}
