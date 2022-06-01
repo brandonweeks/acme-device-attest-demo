@@ -7,6 +7,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -171,33 +172,40 @@ func (simulatorChannel) MeasurementLog() ([]byte, error) {
 	return nil, errors.New("not implemented")
 }
 
-func tpmInit() (*attest.Key, []byte, error) {
+func tpmInit() (*attest.TPM, *attest.AK, []byte, error) {
 	config := &attest.OpenConfig{}
 	if *useSimulator {
 		sim, err := simulator.Get()
 
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		config.CommandChannel = simulatorChannel{sim}
 	}
 	tpm, err := attest.OpenTPM(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		return nil, nil, err
-	}
-	key, err := tpm.NewKey(ak, nil)
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	akCert, err := akCert(ak)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return key, akCert, nil
+	return tpm, ak, akCert, nil
+}
+
+// Borrowed from:
+// https://github.com/golang/crypto/blob/master/acme/acme.go#L748
+func keyAuthDigest(pub crypto.PublicKey, token string) ([]byte, error) {
+	th, err := acme.JWKThumbprint(pub)
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%s.%s", token, th)))
+	return digest[:], err
 }
 
 func main() {
@@ -213,22 +221,22 @@ func main() {
 		}
 	}
 
+	// Register an ACME account.
 	accountKey, err := accountKey()
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	client := acme.Client{
 		Key:          accountKey,
 		DirectoryURL: *caAddress,
 	}
-
 	account := &acme.Account{}
 	_, err = client.Register(ctx, account, func(tosURL string) bool { panic("") })
 	if err != nil && !errors.Is(err, acme.ErrAccountAlreadyExists) {
 		log.Fatal(err)
 	}
 
+	// Create an ACME order.
 	id := []acme.AuthzID{
 		{
 			Type:  "permanent-identifier",
@@ -241,41 +249,73 @@ func main() {
 		log.Fatal(err)
 	}
 
-	certKey, akCert, err := tpmInit()
+	// Retrieve the the challenge from the response.
+	if len(order.AuthzURLs) != 1 {
+		log.Fatal("expected len(authzURLs) == 1")
+	}
+	authzURL := order.AuthzURLs[0]
+	authz, err := client.GetAuthorization(ctx, authzURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(authz.Challenges) != 1 {
+		log.Fatal("expected len(authz.Challenges) == 1")
+	}
+	chal := authz.Challenges[0]
+
+	// Generate the certificate key, include the ACME key authorization in the
+	// the TPM certification data.
+	tpm, ak, akCert, err := tpmInit()
+	if err != nil {
+		log.Fatal(err)
+	}
+	data, err := keyAuthDigest(accountKey.Public(), chal.Token)
+	if err != nil {
+		log.Fatal(err)
+	}
+	config := &attest.KeyConfig{
+		Algorithm:      attest.ECDSA,
+		Size:           256,
+		QualifyingData: data,
+	}
+	certKey, err := tpm.NewKey(ak, config)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, authzURL := range order.AuthzURLs {
-		authz, err := client.GetAuthorization(ctx, authzURL)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, chal := range authz.Challenges {
-			payload, err := attestationStatement(certKey, akCert)
-			if err != nil {
-				log.Fatal(err)
-			}
-			req := struct {
-				AttStmt []byte `json:"attStmt"`
-			}{
-				payload,
-			}
-			if _, err = client.AcceptWithPayload(ctx, chal, req); err != nil {
-				log.Fatal(err)
-			}
-		}
+	// Generate the WebAuthn attestation statement.
+	payload, err := attestationStatement(certKey, akCert)
+	if err != nil {
+		log.Fatal(err)
+	}
+	req := struct {
+		AttStmt []byte `json:"attStmt"`
+	}{
+		payload,
 	}
 
+	// Fufill the ACME challenge using the attestation statement.
+	chalResp, err := client.AcceptWithPayload(ctx, chal, req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if chalResp.Error != nil {
+		log.Fatal(chalResp.Error)
+	}
+
+	// Create a CSR.
 	csr, err := csr(certKey)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Finalize the ACME order.
 	der, _, err := client.CreateOrderCert(ctx, order.FinalizeURL, csr, false)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// PEM encode and print the output.
 	b := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: der[0],

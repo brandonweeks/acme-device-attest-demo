@@ -3,7 +3,7 @@ FROM golang:1.18
 
 WORKDIR /app
 
-RUN curl -sSL https://github.com/brandonweeks/certificates/archive/a663773a133d12616538fcf86b87ae8d47925c51.tar.gz \
+RUN curl -sSL https://github.com/brandonweeks/certificates/archive/9cbb770f09d0375cb621feea71db98da443fe7ca.tar.gz \
     | tar -v -C /app --strip-components 1 -xz
 RUN make build
 
