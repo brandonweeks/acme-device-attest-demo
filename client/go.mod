@@ -19,4 +19,4 @@ require (
 
 replace golang.org/x/crypto => github.com/brandonweeks/golang-crypto v0.0.0-20220601020110-5663e12aa0bb
 
-replace github.com/google/go-attestation => github.com/brandonweeks/go-attestation v0.0.0-20220601001541-25eb4468693b
+replace github.com/google/go-attestation => github.com/brandonweeks/go-attestation v0.0.0-20220602235615-164122a1d59b
