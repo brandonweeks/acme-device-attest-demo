@@ -1,4 +1,4 @@
-module github.com/brandonweeks/smolclient
+module github.com/brandonweeks/acme-device-attest-demo/client
 
 go 1.18
 
