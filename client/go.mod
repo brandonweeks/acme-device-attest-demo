@@ -14,7 +14,7 @@ require (
 	github.com/google/go-tpm v0.3.3 // indirect
 	github.com/google/go-tspi v0.2.1-0.20190423175329-115dea689aad // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )
 
 replace golang.org/x/crypto => github.com/brandonweeks/golang-crypto v0.0.0-20220601020110-5663e12aa0bb
