@@ -3,7 +3,7 @@ module github.com/brandonweeks/acme-device-attest-demo/client
 go 1.18
 
 require (
-	github.com/fxamacker/cbor/v2 v2.4.0
+	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/google/go-attestation v0.4.4-0.20220404204839-8820d49b18d9
 	github.com/google/go-tpm-tools v0.3.8
 	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
